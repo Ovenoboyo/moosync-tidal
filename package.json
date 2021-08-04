@@ -1,11 +1,11 @@
 {
-  "name": "moosync-extension-starter",
+  "name": "moosync.extension.starter",
   "version": "1.0.0",
   "description": "",
   "main": "src/index.ts",
   "extensionEntry": "dist/index.js",
   "moosyncExtension": true,
-  "packageName": "MyExtension",
+  "displayName": "MyExtension",
   "scripts": {
     "watch:build": "webpack --watch",
     "webpack:build": "webpack --config webpack.config.js",
@@ -13,14 +13,12 @@
   },
   "author": "Sahil Gupte",
   "devDependencies": {
-    "@moosync/moosync-types": "^1.0.8",
-    "@moosync/packer": "^0.0.8",
-    "ts-loader": "^9.2.3",
+    "@moosync/moosync-types": "^1.1.2",
+    "@moosync/packer": "^0.1.0",
+    "ts-loader": "^9.2.5",
     "typescript": "^4.3.2",
-    "webpack": "^5.46.0",
+    "webpack": "^5.48.0",
     "webpack-cli": "^4.7.2"
   },
-  "dependencies": {
-    "winston": "^3.3.3"
-  }
+  "dependencies": {}
 }
