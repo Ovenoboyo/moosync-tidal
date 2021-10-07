@@ -21,4 +21,8 @@ export class MyExtension implements MoosyncExtensionTemplate {
     onVolumeChanged(volume: number) {
         console.log(volume)
     }
+
+    onStopped(): void {
+        logger.info('Extension stopped')
+    }
 }

@@ -1,32 +1,55 @@
-# Nodejs + Typescript + Webpack app starter
-
-![img](https://i.imgur.com/lm5HI8a.gif)
-
+# Moosync Extension boilerplate
 
 ## Quick Overview
 
-This is a minimalistic starter app that benefits of the strong typing of the Typescript compiler plus all the latest ES6, ES7+ features
-on a Nodejs application, already configured with a custom .vscode to allow debugging inside a Visual studio code IDE
+This is a minimal starter app that benefits of the strong typing of the Typescript compiler plus all the latest ES6, ES7+ features
+on a NodeJS application.
 
-see also [node babel webpack starter](https://github.com/kinotto/node-babel-webpack-starter)
 
 ## Usage
 
-clone the repository then:
+## Installation
 
-`npm install` or `yarn install`
+Clone the repository then:
 
-`npm start` (to start the server)
+``` bash
+yarn install
+```
 
-`npm build` (to build the code)
+To install all dependencies.
 
-## Features
+## Writing code
 
-- **typescript**: transpiling from .ts to ES5
-- **webpack**: bundling the source to a bundle.js
-- **live compiling**: as well as live reload 
-- **custom .vscode**: added custom vscode configuration to allow easy debugging of the source inside Visual Studio Code
+Custom types can be defined under `src/types`
 
+Functionality of the extension can be implemented in `extension.ts`
 
+### Package details
 
+Details of the package can be changed inside `package.json`
 
+#### Inside `package.json`
+
+**name** is the unique package name of the extension. Can not contain whitespace.
+
+**version** is the version of the extension.
+
+**moosyncExtension** is the file which is read when extension is loaded in Moosync.
+
+**displayName** is the Name of the extension. May contain whitespace.
+
+**author** is the name of the author of the extension.
+
+## Creating the extension
+
+To generate the output of webpack
+
+``` bash
+yarn webpack:build
+```
+
+To Build and pack the extension for Moosync
+
+``` bash
+yarn build
+```
