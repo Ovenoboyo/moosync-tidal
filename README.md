@@ -40,6 +40,29 @@ Details of the package can be changed inside `package.json`
 
 **author** is the name of the author of the extension.
 
+## Extension Lifecycle
+
+The extension system in Moosync makes use of events to functions.
+
+### Events
+
+**Documentation for events can be found [here](https://moosync.cf/docs/extensions_api/interfaces/index.MoosyncExtensionTemplate.html)**
+
+The basic events are:
+
+- onStarted: Fired when extension is started
+- onStopped: Fired when extension is stopped
+
+It is recommended to create an instance of your required code inside the onStarted Event and destroy the same in onStopped.
+
+Example for implementation of each event can be found [here](https://github.com/Moosync/extension-typescript-template/blob/main/src/extension.ts)
+
+### API
+
+You may also make use of the on demand API to fetch data from Moosync.
+
+Documentation for the API can be found [here](https://moosync.cf/docs/extensions_api/interfaces/index.extensionAPI.html)
+
 ## Creating the extension
 
 To generate the output of webpack
@@ -48,7 +71,7 @@ To generate the output of webpack
 yarn webpack:build
 ```
 
-To Build and pack the extension for Moosync
+To Build and pack the extension for Moosync using [Moosync packer](https://github.com/Moosync/extension-packer)
 
 ``` bash
 yarn build
