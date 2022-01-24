@@ -2,27 +2,27 @@ import { MoosyncExtensionTemplate } from "@moosync/moosync-types";
 import { PlayerState, Song, SongQueue } from "@moosync/moosync-types/models";
 
 export class MyExtension implements MoosyncExtensionTemplate {
-    onStarted(): void {
+    async onStarted() {
         logger.info('Extension started')
     }
 
-    onSongChanged(song: Song) {
+    async onSongChanged(song: Song) {
         console.log(song)
     }
 
-    onPlayerStateChanged(state: PlayerState) {
+    async onPlayerStateChanged(state: PlayerState) {
         console.log(state)
     }
 
-    onSongQueueChanged(queue: SongQueue) {
+    async onSongQueueChanged(queue: SongQueue) {
         console.log(queue)
     }
 
-    onVolumeChanged(volume: number) {
+    async onVolumeChanged(volume: number) {
         console.log(volume)
     }
 
-    onStopped(): void {
+    async onStopped() {
         logger.info('Extension stopped')
     }
 }
