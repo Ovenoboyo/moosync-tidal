@@ -15,7 +15,7 @@
   "author": "Sahil Gupte",
   "devDependencies": {
     "@moosync/moosync-types": "https://github.com/Moosync/extension-api-types",
-    "@moosync/packer": "^0.1.2",
+    "@moosync/packer": "0.1.4",
     "ts-loader": "^9.2.8",
     "typescript": "^4.6.3",
     "webpack": "^5.72.0",
