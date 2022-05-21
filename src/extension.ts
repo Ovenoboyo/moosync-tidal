@@ -1,87 +1,137 @@
 import { MoosyncExtensionTemplate } from '@moosync/moosync-types'
-import { PlayerState, Song, SongQueue } from '@moosync/moosync-types/models'
-import { resolve } from 'path'
+
+import path from 'path'
+import { URL } from 'url'
+import { TidalAPI } from './tidalApi'
 
 export class MyExtension implements MoosyncExtensionTemplate {
+  private accountId: string = ''
+
+  private deviceDetails: {
+    deviceCode?: string
+  } = {}
+
+  private authDetails: { refreshToken?: string; accessToken?: string; countryCode?: string }
+
+  private tidalApi: TidalAPI | undefined
+
   async onStarted() {
-    logger.info('Extension started')
-    this.registerEvents()
+    console.info('Tidal extension started')
+    await this.fetchPreferences()
 
-    setInterval(() => {
-      this.setProgressbarWidth()
-    }, 1000)
+    if (this.authDetails.refreshToken) {
+      await this.performLogin()
+    }
+
+    this.setupListeners()
+    this.setupAccount()
   }
 
-  private async onSongChanged(song: Song) {
-    logger.debug(song)
+  private async fetchPreferences() {
+    const deviceCode = await api.getSecure<string>('deviceCode')
+    const refreshToken = await api.getSecure<string>('refreshToken')
+    const countryCode = await api.getPreferences<string>('countryCode', 'US')
+
+    this.deviceDetails = { deviceCode }
+    this.authDetails = { refreshToken, countryCode }
+
+    console.log(this.deviceDetails, this.authDetails)
   }
 
-  private async onPlayerStateChanged(state: PlayerState) {
-    logger.debug(state)
+  private async performLogin() {
+    const res = await this.tidalApi.performLogin(this.authDetails.refreshToken, this.deviceDetails.deviceCode)
+    console.debug('login response', res)
+
+    if (typeof res !== 'number') {
+      if (res.refreshToken) {
+        await api.setSecure('refreshToken', res.refreshToken)
+      }
+      await api.setPreferences('countryCode', res.countryCode)
+    } else if (res === 1) {
+      api.setSecure('deviceCode', undefined)
+      this.deviceDetails = {}
+    }
   }
 
-  private async onSongQueueChanged(queue: SongQueue) {
-    logger.debug(queue)
+  private async performDeviceAuthorization() {
+    return await this.tidalApi.performDeviceAuthorization()
   }
 
-  private async onVolumeChanged(volume: number) {
-    logger.debug(volume)
+  private async setupAccount() {
+    this.accountId = await api.registerAccount(
+      'Tidal',
+      '#000000',
+      path.resolve(__dirname, '../assets/icon.svg'),
+      this.loginCallback.bind(this),
+      async () => {
+        console.log('Logging out of tidal')
+        await api.changeAccountAuthStatus(this.accountId, false)
+      }
+    )
   }
 
-  async onStopped() {
-    logger.info('Extension stopped')
+  private async loginCallback() {
+    if (!this.deviceDetails.deviceCode) {
+      const deviceData = await this.performDeviceAuthorization()
+      console.debug('device data:', deviceData)
+      if (deviceData) {
+        this.deviceDetails = {
+          deviceCode: deviceData.deviceCode
+        }
+
+        api.setSecure('deviceCode', deviceData.deviceCode)
+
+        const interval = setInterval(() => {
+          api.off('oauthCallback')
+        }, 300 * 1000)
+
+        api.on('oauthCallback', async () => {
+          clearInterval(interval)
+          api.off('oauthCallback')
+
+          await this.performLogin()
+          await api.closeLoginModal()
+        })
+
+        await api.registerOAuth('tidal')
+        await api.openLoginModal({
+          providerName: 'Tidal',
+          providerColor: 'var(--accent)',
+          text: 'After finishing, press the submit button',
+          url: deviceData.verificationUriComplete,
+          oauthPath: 'tidal',
+          manualClick: true
+        })
+
+        const url = deviceData.verificationUriComplete.startsWith('http')
+          ? deviceData.verificationUriComplete
+          : 'https://' + deviceData.verificationUriComplete
+        await api.openExternalURL(url)
+      }
+    } else {
+      await this.performLogin()
+    }
   }
 
-  private async onPreferenceChanged({ key, value }: { key: string; value: any }): Promise<void> {
-    logger.info('Preferences changed at', key, 'with value', value)
-  }
-
-  async setProgressbarWidth() {
-    await api.setPreferences('test_progressBar', Math.random() * 100 + 1)
-  }
-
-  private async registerEvents() {
+  private setupListeners() {
     api.on('requestedPlaylists', async () => {
-      return {
-        playlists: [
-          {
-            playlist_id: 'Some random generated ID',
-            playlist_name: 'Hello this is a playlist',
-            playlist_song_count: 69,
-            playlist_coverPath: 'https://avatars.githubusercontent.com/u/91860733?s=200&v=4',
-            icon: resolve(__dirname, '../assets/icon.svg')
-          }
-        ]
-      }
+      const playlists = await this.tidalApi.getPlaylists()
+      return { playlists }
     })
 
-    api.on('requestedPlaylistSongs', async () => {
-      return {
-        songs: [
-          {
-            _id: 'Another random ID',
-            title: 'Example song',
-            duration: 0,
-            date_added: Date.now(),
-            type: 'URL',
-            playbackUrl:
-              'https://file-examples.com/storage/fe8788b10b62489539afcfd/2017/11/file_example_MP3_5MG.mp3' /* If the URL is directly playable, duration is fetched at runtime */
-          }
-        ]
-      }
+    api.on('requestedPlaylistSongs', async (playlist_id) => {
+      const songs = await this.tidalApi.getPlaylistItems(playlist_id)
+      return { songs }
     })
 
-    api.on('playerStateChanged', this.onPlayerStateChanged.bind(this))
-    api.on('preferenceChanged', this.onPreferenceChanged.bind(this))
-    api.on('volumeChanged', this.onVolumeChanged.bind(this))
-    api.on('songChanged', this.onSongChanged.bind(this))
-    api.on('songQueueChanged', this.onSongQueueChanged.bind(this))
-    api.on('seeked', async (time) => logger.debug('Player seeked to', time))
+    api.on('customRequest', async (url) => {
+      const parsed = new URL(url)
+      const songId = parsed.pathname.substring(1)
+      const quality = parsed.searchParams.get('quality')
 
-    await api.registerOAuth('exampleOAuth') /* Callback paths are case-insensitive */
+      const manifest = await this.tidalApi.getStreamURL(songId, quality)
 
-    api.on('oauthCallback', async (url) => {
-      logger.info('OAuth callback triggered', url)
+      return { mimeType: 'application/dash+xml', data: Buffer.from(manifest) }
     })
   }
 }
