@@ -13,18 +13,18 @@ export class MyExtension implements MoosyncExtensionTemplate {
 
   private authDetails: { refreshToken?: string; accessToken?: string; countryCode?: string }
 
-  private tidalApi: TidalAPI | undefined
+  private tidalApi = new TidalAPI()
 
   async onStarted() {
     console.info('Tidal extension started')
     await this.fetchPreferences()
 
+    this.setupAccount()
+    this.setupListeners()
+
     if (this.authDetails.refreshToken) {
       await this.performLogin()
     }
-
-    this.setupListeners()
-    this.setupAccount()
   }
 
   private async fetchPreferences() {
@@ -43,6 +43,8 @@ export class MyExtension implements MoosyncExtensionTemplate {
     console.debug('login response', res)
 
     if (typeof res !== 'number') {
+      await api.changeAccountAuthStatus(this.accountId, true, res.username)
+
       if (res.refreshToken) {
         await api.setSecure('refreshToken', res.refreshToken)
       }
@@ -122,6 +124,21 @@ export class MyExtension implements MoosyncExtensionTemplate {
     api.on('requestedPlaylistSongs', async (playlist_id) => {
       const songs = await this.tidalApi.getPlaylistItems(playlist_id)
       return { songs }
+    })
+
+    api.on('requestedSongFromURL', async (url) => {
+      const resp = await this.tidalApi.getTrackIfValid(url)
+      if (resp) return { song: resp }
+    })
+
+    api.on('requestedPlaylistFromURL', async (url) => {
+      const resp = await this.tidalApi.getPlaylistIfValid(url)
+      if (resp && resp.playlist) return resp
+    })
+
+    api.on('requestSearchResult', async (term) => {
+      const resp = await this.tidalApi.search(term)
+      return { providerName: 'Tidal', songs: resp }
     })
 
     api.on('customRequest', async (url) => {

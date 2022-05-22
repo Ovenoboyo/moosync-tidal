@@ -55,66 +55,10 @@ declare namespace TidalResponses {
     }
 
     interface Item {
-      item: Item2
+      item: SingleTrack.Root
       type: string
       cut: any
     }
-
-    interface Item2 {
-      id: number
-      title: string
-      duration: number
-      replayGain: number
-      peak: number
-      allowStreaming: boolean
-      streamReady: boolean
-      streamStartDate: string
-      premiumStreamingOnly: boolean
-      trackNumber: number
-      volumeNumber: number
-      version: any
-      popularity: number
-      copyright: string
-      description: any
-      url: string
-      isrc: string
-      editable: boolean
-      explicit: boolean
-      audioQuality: string
-      audioModes: string[]
-      artist: Artist
-      artists: Artist2[]
-      album: Album
-      mixes: Mixes
-      dateAdded: string
-      index: number
-      itemUuid: string
-    }
-
-    interface Artist {
-      id: number
-      name: string
-      type: string
-      picture: any
-    }
-
-    interface Artist2 {
-      id: number
-      name: string
-      type: string
-      picture: any
-    }
-
-    interface Album {
-      id: number
-      title: string
-      cover: string
-      vibrantColor: string
-      videoCover: any
-      releaseDate: string
-    }
-
-    interface Mixes {}
   }
 
   namespace StreamDetails {
@@ -150,6 +94,75 @@ declare namespace TidalResponses {
         countryCode: string
         username: string
         fullName?: string
+      }
+    }
+  }
+
+  namespace SingleTrack {
+    interface Root {
+      id: number
+      title: string
+      duration: number
+      replayGain: number
+      peak: number
+      allowStreaming: boolean
+      streamReady: boolean
+      streamStartDate: string
+      premiumStreamingOnly: boolean
+      trackNumber: number
+      volumeNumber: number
+      version: any
+      popularity: number
+      copyright: string
+      url: string
+      isrc: string
+      editable: boolean
+      explicit: boolean
+      audioQuality: string
+      audioModes: string[]
+      artist: Artist
+      artists: Artist2[]
+      album: Album
+      mixes: Mixes
+      dateAdded?: string
+    }
+
+    interface Artist {
+      id: number
+      name: string
+      type: string
+      picture: string
+    }
+
+    interface Artist2 {
+      id: number
+      name: string
+      type: string
+      picture?: string
+    }
+
+    interface Album {
+      id: number
+      title: string
+      cover: string
+      vibrantColor: string
+      videoCover: any
+    }
+
+    interface Mixes {}
+  }
+
+  namespace SearchResults {
+    interface Root {
+      tracks: {
+        limit: number
+        offset: number
+        totalNumberOfItems: number
+        items: SingleTrack.Root[]
+      }
+      topHit: {
+        value: SingleTrack.Root
+        type: 'TRACKS' | string
       }
     }
   }

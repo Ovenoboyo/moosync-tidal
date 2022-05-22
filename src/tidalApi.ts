@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios'
 import adapter from 'axios/lib/adapters/http'
 import { APIParser } from './apiParser'
-import { URLSearchParams } from 'url'
+import { URL, URLSearchParams } from 'url'
 
 const API_V2 = 'https://api.tidal.com/v2'
 const API_V1 = 'https://api.tidalhifi.com/v1'
@@ -11,15 +11,10 @@ const API_KEY = { clientId: '7m7Ap0JC9j1cOM3n', clientSecret: 'vRAdA108tlvkJpTsG
 export class TidalAPI {
   private axios = axios.create({ adapter })
 
-  private countryCode: string
-  private accessToken: string
+  private countryCode?: string = 'US'
+  private accessToken?: string
 
   private parser = new APIParser()
-
-  constructor(accessToken: string, countryCode: string) {
-    this.countryCode = countryCode
-    this.accessToken = accessToken
-  }
 
   public async performDeviceAuthorization() {
     try {
@@ -58,10 +53,14 @@ export class TidalAPI {
         }
       })
 
+      this.accessToken = res.data.access_token
+      this.countryCode = res.data.user.countryCode
+
       return {
         refreshToken: res.data.refresh_token,
         accessToken: res.data.access_token,
-        countryCode: res.data.user.countryCode
+        countryCode: res.data.user.countryCode,
+        username: res.data.user.fullName ?? res.data.user.username
       }
     } catch (e) {
       console.error('Tidal authorization failed', (e as AxiosError).code, (e as AxiosError).response.data)
@@ -144,7 +143,7 @@ export class TidalAPI {
       limit: 50
     })
 
-    return this.parser.parsePlaylistItems(resp.items)
+    return this.parser.parsePlaylistItems(resp.items.map((val) => val.item))
   }
 
   public async getStreamURL(songId: string, quality: string) {
@@ -156,5 +155,58 @@ export class TidalAPI {
 
     const decoded = Buffer.from(resp.manifest, 'base64').toString('utf-8')
     return decoded
+  }
+
+  private matchTidalHostname(url: URL) {
+    return url.hostname === 'tidal.com' || url.hostname === 'listen.tidal.com'
+  }
+
+  public async getTrackIfValid(url: string) {
+    const parsed = new URL(url)
+    //https://tidal.com/browse/track/34156240
+    if (this.matchTidalHostname(parsed) && parsed.pathname.includes('/track/')) {
+      const trackId = parsed.pathname.substring(parsed.pathname.lastIndexOf('/') + 1)
+      const song = await this.getTrack(trackId)
+      return song
+    }
+  }
+
+  public async getPlaylistIfValid(url: string) {
+    const parsed = new URL(url)
+    //https://tidal.com/browse/playlist/48fb1098-5be4-4570-b95b-91c8f9bf4814
+    //https://listen.tidal.com/playlist/48fb1098-5be4-4570-b95b-91c8f9bf4814
+    if (this.matchTidalHostname(parsed) && parsed.pathname.includes('/playlist/')) {
+      const playlistId = parsed.pathname.substring(parsed.pathname.lastIndexOf('/') + 1)
+      const resp = await this.getPlaylist(playlistId)
+      return resp
+    }
+  }
+
+  private async getTrack(id: number | string) {
+    const resp = await this.get<TidalResponses.SingleTrack.Root>('tracks/' + id.toString())
+
+    return this.parser.parseSingleTrack(resp)
+  }
+
+  private async getPlaylist(id: string) {
+    const resp = await this.get<TidalResponses.Playlists.Data>('playlists/' + id)
+    const playlist = this.parser.parsePlaylist(resp)
+
+    if (playlist) {
+      const songs = await this.getPlaylistItems(id)
+      return { playlist, songs }
+    }
+  }
+
+  public async search(term: string) {
+    const resp = await this.get<TidalResponses.SearchResults.Root>('search', {
+      query: term,
+      offset: 0,
+      limit: 50,
+      types: 'TRACKS'
+    })
+
+    const songs = this.parser.parsePlaylistItems(resp.tracks.items)
+    return songs
   }
 }
