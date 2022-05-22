@@ -18,6 +18,14 @@ export class TidalAPI {
   private parser = new APIParser()
   private cacheHandler = new CacheHandler('./tidal.cache', false)
 
+  public setAccessToken(token?: string) {
+    this.accessToken = token
+  }
+
+  public async clearCache() {
+    await this.cacheHandler.clearCache()
+  }
+
   public async performDeviceAuthorization() {
     try {
       const res = await this.axios.post<TidalResponses.DeviceAuth.Root>(

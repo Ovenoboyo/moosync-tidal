@@ -22,7 +22,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
     this.setupAccount()
     this.setupListeners()
 
-    if (this.authDetails.refreshToken) {
+    if (!this.authDetails.accessToken && this.authDetails.refreshToken) {
       await this.performLogin()
     }
   }
@@ -32,26 +32,33 @@ export class MyExtension implements MoosyncExtensionTemplate {
     const refreshToken = await api.getSecure<string>('refreshToken')
     const countryCode = await api.getPreferences<string>('countryCode', 'US')
 
+    const accessToken = await api.getSecure<string>('accessToken')
+    if (accessToken) {
+      this.tidalApi.setAccessToken(accessToken)
+    }
+
     this.deviceDetails = { deviceCode }
-    this.authDetails = { refreshToken, countryCode }
+    this.authDetails = { accessToken, refreshToken, countryCode }
 
     console.log(this.deviceDetails, this.authDetails)
   }
 
   private async performLogin() {
-    const res = await this.tidalApi.performLogin(this.authDetails.refreshToken, this.deviceDetails.deviceCode)
-    console.debug('login response', res)
+    if (!this.authDetails.accessToken) {
+      const res = await this.tidalApi.performLogin(this.authDetails.refreshToken, this.deviceDetails.deviceCode)
+      console.debug('login response', res)
 
-    if (typeof res !== 'number') {
-      await api.changeAccountAuthStatus(this.accountId, true, res.username)
+      if (typeof res !== 'number') {
+        await api.changeAccountAuthStatus(this.accountId, true, res.username)
 
-      if (res.refreshToken) {
-        await api.setSecure('refreshToken', res.refreshToken)
+        if (res.refreshToken) {
+          await api.setSecure('refreshToken', res.refreshToken)
+        }
+        await api.setPreferences('countryCode', res.countryCode)
+      } else if (res === 1) {
+        api.setSecure('deviceCode', undefined)
+        this.deviceDetails = {}
       }
-      await api.setPreferences('countryCode', res.countryCode)
-    } else if (res === 1) {
-      api.setSecure('deviceCode', undefined)
-      this.deviceDetails = {}
     }
   }
 
@@ -149,6 +156,22 @@ export class MyExtension implements MoosyncExtensionTemplate {
       const manifest = await this.tidalApi.getStreamURL(songId, quality)
 
       return { mimeType: 'application/dash+xml', data: Buffer.from(manifest) }
+    })
+
+    api.on('preferenceChanged', async ({ key, value }) => {
+      if (key === 'accessToken') {
+        if (typeof value === 'string' || typeof value === 'undefined') {
+          this.authDetails.accessToken = value
+          this.tidalApi.setAccessToken(value)
+
+          if (value) await api.changeAccountAuthStatus(this.accountId, true, 'Custom login')
+          else await api.changeAccountAuthStatus(this.accountId, false)
+        }
+      }
+
+      if (key === 'buttons.clearCache') {
+        await this.tidalApi.clearCache()
+      }
     })
   }
 }
