@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios'
 import adapter from 'axios/lib/adapters/http'
 import { APIParser } from './apiParser'
 import { URL, URLSearchParams } from 'url'
+import { CacheHandler } from './cacheHandler'
 
 const API_V2 = 'https://api.tidal.com/v2'
 const API_V1 = 'https://api.tidalhifi.com/v1'
@@ -15,6 +16,7 @@ export class TidalAPI {
   private accessToken?: string
 
   private parser = new APIParser()
+  private cacheHandler = new CacheHandler('./tidal.cache', false)
 
   public async performDeviceAuthorization() {
     try {
@@ -73,6 +75,13 @@ export class TidalAPI {
   }
 
   private async get<T>(path: string, query?: any): Promise<T> {
+    const cacheId = `${API_V1}/${path}/${JSON.stringify(query)}`
+    const cache = this.cacheHandler.getCache(cacheId)
+
+    if (cache) {
+      return JSON.parse(cache) as T
+    }
+
     try {
       const resp = await this.axios.get<T>(`${API_V1}/${path}`, {
         params: {
@@ -85,6 +94,8 @@ export class TidalAPI {
           authorization: `Bearer ${this.accessToken}`
         }
       })
+
+      this.cacheHandler.addToCache(cacheId, JSON.stringify(resp.data))
 
       return resp.data
     } catch (e) {
@@ -99,6 +110,13 @@ export class TidalAPI {
   }
 
   private async getV2<T>(path: string, query?: any): Promise<T> {
+    const cacheId = `${API_V2}/${path}/${JSON.stringify(query)}`
+    const cache = this.cacheHandler.getCache(cacheId)
+
+    if (cache) {
+      return JSON.parse(cache) as T
+    }
+
     try {
       const resp = await this.axios.get<T>(`${API_V2}/${path}`, {
         params: {
@@ -111,6 +129,8 @@ export class TidalAPI {
           authorization: `Bearer ${this.accessToken}`
         }
       })
+
+      this.cacheHandler.addToCache(cacheId, JSON.stringify(resp.data))
 
       return resp.data
     } catch (e) {
