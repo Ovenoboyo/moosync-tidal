@@ -148,6 +148,14 @@ export class MyExtension implements MoosyncExtensionTemplate {
       return { providerName: 'Tidal', songs: resp }
     })
 
+    api.on('requestedRecommendations', async () => {
+      const data = await this.tidalApi.getRecommendations()
+      return {
+        providerName: 'Tidal',
+        songs: data
+      }
+    })
+
     api.on('customRequest', async (url) => {
       const parsed = new URL(url)
       const songId = parsed.pathname.substring(1)

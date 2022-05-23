@@ -3,9 +3,11 @@ import adapter from 'axios/lib/adapters/http'
 import { APIParser } from './apiParser'
 import { URL, URLSearchParams } from 'url'
 import { CacheHandler } from './cacheHandler'
+import { Song } from '@moosync/moosync-types'
 
 const API_V2 = 'https://api.tidal.com/v2'
 const API_V1 = 'https://api.tidalhifi.com/v1'
+const LISTEN_TIDAL = 'https://listen.tidal.com/v1/'
 const AUTH_URL = 'https://auth.tidal.com/v1/oauth2'
 const API_KEY = { clientId: '7m7Ap0JC9j1cOM3n', clientSecret: 'vRAdA108tlvkJpTsGZS8rGZ7xTlbJ0qaZ2K9saEzsgY=' }
 
@@ -82,8 +84,8 @@ export class TidalAPI {
     return 0
   }
 
-  private async get<T>(path: string, query?: any): Promise<T> {
-    const cacheId = `${API_V1}/${path}/${JSON.stringify(query)}`
+  private async get<T>(path: string, query?: any, customUrl?: string): Promise<T> {
+    const cacheId = `${customUrl ?? API_V1}/${path}/${JSON.stringify(query)}`
     const cache = this.cacheHandler.getCache(cacheId)
 
     if (cache) {
@@ -117,50 +119,19 @@ export class TidalAPI {
     }
   }
 
-  private async getV2<T>(path: string, query?: any): Promise<T> {
-    const cacheId = `${API_V2}/${path}/${JSON.stringify(query)}`
-    const cache = this.cacheHandler.getCache(cacheId)
-
-    if (cache) {
-      return JSON.parse(cache) as T
-    }
-
-    try {
-      const resp = await this.axios.get<T>(`${API_V2}/${path}`, {
-        params: {
-          ...query,
-          countryCode: this.countryCode,
-          locale: 'en_US',
-          deviceType: 'BROWSER'
-        },
-        headers: {
-          authorization: `Bearer ${this.accessToken}`
-        }
-      })
-
-      this.cacheHandler.addToCache(cacheId, JSON.stringify(resp.data))
-
-      return resp.data
-    } catch (e) {
-      console.error(
-        'Failed to fetch from Tidal API',
-        path,
-        query,
-        (e as AxiosError).code,
-        (e as AxiosError).response?.data
-      )
-    }
-  }
-
   public async getPlaylists() {
-    const resp = await this.getV2<TidalResponses.Playlists.Root>('my-collection/playlists/folders', {
-      folderId: 'root',
-      offset: 0,
-      limit: 50,
-      order: 'DATE',
-      orderDirection: 'DESC',
-      includeOnly: 'PLAYLIST'
-    })
+    const resp = await this.get<TidalResponses.Playlists.Root>(
+      'my-collection/playlists/folders',
+      {
+        folderId: 'root',
+        offset: 0,
+        limit: 50,
+        order: 'DATE',
+        orderDirection: 'DESC',
+        includeOnly: 'PLAYLIST'
+      },
+      API_V2
+    )
 
     return this.parser.parsePlaylists(resp.items)
   }
@@ -236,5 +207,43 @@ export class TidalAPI {
 
     const songs = this.parser.parsePlaylistItems(resp.tracks.items)
     return songs
+  }
+
+  public async getRecommendations() {
+    const songList: Song[] = []
+
+    const songs = await api.getSongs({ song: { extension: 'moosync.tidal' } })
+    for (const s of songs) {
+      const recommendations = await this.get<TidalResponses.Recommendations.Root>(
+        `tracks/${s._id.replace('moosync.tidal:', '')}/recommendations`,
+        {
+          limit: 20,
+          offset: 0
+        }
+      )
+
+      for (const t of recommendations.items) {
+        songList.push(this.parser.parseSingleTrack(t.track))
+      }
+    }
+
+    const data = await this.get<TidalResponses.Pages.Root>('pages/staff_picks', {}, LISTEN_TIDAL)
+    const filteredModules = data.rows.filter(
+      (val) => val.modules.filter((val2) => val2.type === 'TRACK_LIST').length > 0
+    )
+
+    for (const moduleList of filteredModules) {
+      for (const module of moduleList.modules) {
+        if (module.showMore) {
+          const fetch = await this.get<TidalResponses.Pages.Root>(module.showMore.apiPath, {}, LISTEN_TIDAL)
+          const tracks = fetch.rows[0].modules[0].pagedList.items
+          for (const t of tracks) {
+            songList.push(this.parser.parseSingleTrack(t))
+          }
+        }
+      }
+    }
+
+    return songList
   }
 }
