@@ -515,4 +515,10 @@ declare namespace TidalResponses {
       MASTER_TRACK_MIX?: string
     }
   }
+
+  namespace Lyrics {
+    interface Root {
+      lyrics: string
+    }
+  }
 }

@@ -9,7 +9,7 @@
 
 "@moosync/moosync-types@https://github.com/Moosync/extension-api-types#dev":
   version "1.3.0"
-  resolved "https://github.com/Moosync/extension-api-types#a1217bfdd9a0ed3f2c7ab6314a0da9ae3b9d5ff5"
+  resolved "https://github.com/Moosync/extension-api-types#b35714614cee66be22035e3cf9bbf97af6115493"
 
 "@moosync/packer@0.1.4":
   version "0.1.4"

@@ -203,6 +203,11 @@ export class TidalAPI {
     }
   }
 
+  public async getLyrics(id: string) {
+    const resp = await this.get<TidalResponses.Lyrics.Root>(`tracks/${id}/lyrics`, {}, LISTEN_TIDAL)
+    return resp.lyrics
+  }
+
   private async getTrack(id: number | string) {
     const resp = await this.get<TidalResponses.SingleTrack.Root>('tracks/' + id.toString())
 

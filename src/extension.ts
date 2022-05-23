@@ -4,6 +4,8 @@ import path from 'path'
 import { URL } from 'url'
 import { TidalAPI } from './tidalApi'
 
+const PACKAGE_NAME = 'moosync.tidal'
+
 export class MyExtension implements MoosyncExtensionTemplate {
   private accountId: string = ''
 
@@ -129,7 +131,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
     })
 
     api.on('requestedPlaylistSongs', async (playlist_id) => {
-      const songs = await this.tidalApi.getPlaylistItems(playlist_id.replace('moosync.tidal:', ''))
+      const songs = await this.tidalApi.getPlaylistItems(playlist_id.replace(`${PACKAGE_NAME}:`, ''))
       return { songs }
     })
 
@@ -153,6 +155,13 @@ export class MyExtension implements MoosyncExtensionTemplate {
       return {
         providerName: 'Tidal',
         songs: data
+      }
+    })
+
+    api.on('requestedLyrics', async (song) => {
+      if (song.providerExtension === PACKAGE_NAME) {
+        const data = await this.tidalApi.getLyrics(song._id.replace(`${PACKAGE_NAME}:`, ''))
+        return data
       }
     })
 
