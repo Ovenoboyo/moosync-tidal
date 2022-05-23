@@ -57,7 +57,7 @@ export class APIParser {
           album_coverPath_high: this.getCover(item.album.cover)
         },
         type: 'DASH',
-        playbackUrl: `extension://${PACKAGE_NAME}/${item.id}?quality=${item.audioQuality}`
+        playbackUrl: `extension://${PACKAGE_NAME}/${item.id}?quality=LOSSLESS`
       }
     }
   }

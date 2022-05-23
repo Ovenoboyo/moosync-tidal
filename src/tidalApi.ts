@@ -7,7 +7,7 @@ import { Song } from '@moosync/moosync-types'
 
 const API_V2 = 'https://api.tidal.com/v2'
 const API_V1 = 'https://api.tidalhifi.com/v1'
-const LISTEN_TIDAL = 'https://listen.tidal.com/v1/'
+const LISTEN_TIDAL = 'https://listen.tidal.com/v1'
 const AUTH_URL = 'https://auth.tidal.com/v1/oauth2'
 const API_KEY = { clientId: '7m7Ap0JC9j1cOM3n', clientSecret: 'vRAdA108tlvkJpTsGZS8rGZ7xTlbJ0qaZ2K9saEzsgY=' }
 
@@ -93,7 +93,7 @@ export class TidalAPI {
     }
 
     try {
-      const resp = await this.axios.get<T>(`${API_V1}/${path}`, {
+      const resp = await this.axios.get<T>(`${customUrl ?? API_V1}/${path}`, {
         params: {
           ...query,
           countryCode: this.countryCode,
@@ -111,7 +111,7 @@ export class TidalAPI {
     } catch (e) {
       console.error(
         'Failed to fetch from Tidal API',
-        path,
+        (customUrl ?? API_V1) + '/' + path,
         query,
         (e as AxiosError).code,
         (e as AxiosError).response?.data
@@ -153,6 +153,8 @@ export class TidalAPI {
     })
 
     const decoded = Buffer.from(resp.manifest, 'base64').toString('utf-8')
+
+    console.log(decoded)
     return decoded
   }
 
