@@ -3,7 +3,8 @@ import adapter from 'axios/lib/adapters/http'
 import { APIParser } from './apiParser'
 import { URL, URLSearchParams } from 'url'
 import { CacheHandler } from './cacheHandler'
-import { Song } from '@moosync/moosync-types'
+import { Song, Playlist } from '@moosync/moosync-types'
+import { resolve } from 'path'
 
 const API_V2 = 'https://api.tidal.com/v2'
 const API_V1 = 'https://api.tidalhifi.com/v1'
@@ -16,6 +17,7 @@ export class TidalAPI {
 
   private countryCode?: string = 'US'
   private accessToken?: string
+  private accountId?: string
 
   private parser = new APIParser()
   private cacheHandler = new CacheHandler('./tidal.cache', false)
@@ -67,6 +69,7 @@ export class TidalAPI {
 
       this.accessToken = res.data.access_token
       this.countryCode = res.data.user.countryCode
+      this.accountId = res.data.user.userId.toString()
 
       return {
         refreshToken: res.data.refresh_token,
@@ -119,7 +122,12 @@ export class TidalAPI {
     }
   }
 
-  public async getPlaylists() {
+  private async getFavoriteTracks() {
+    const resp = await this.get<TidalResponses.PlaylistItems.Root>(`users/${this.accountId}/favorites/tracks`)
+    return this.parser.parsePlaylistItems(resp.items)
+  }
+
+  public async getPlaylists(): Promise<Playlist[]> {
     const resp = await this.get<TidalResponses.Playlists.Root>(
       'my-collection/playlists/folders',
       {
@@ -133,16 +141,28 @@ export class TidalAPI {
       API_V2
     )
 
-    return this.parser.parsePlaylists(resp.items)
+    return [
+      ...this.parser.parsePlaylists(resp.items),
+      {
+        playlist_id: 'favorite',
+        playlist_name: 'Favorite Tracks',
+        playlist_song_count: 0,
+        playlist_coverPath: resolve(__dirname, '../assets/favorite.svg')
+      }
+    ]
   }
 
   public async getPlaylistItems(playlistID: string) {
-    const resp = await this.get<TidalResponses.PlaylistItems.Root>(`playlists/${playlistID}/items`, {
-      offset: 0,
-      limit: 50
-    })
+    if (playlistID === 'favorite') {
+      return await this.getFavoriteTracks()
+    } else {
+      const resp = await this.get<TidalResponses.PlaylistItems.Root>(`playlists/${playlistID}/items`, {
+        offset: 0,
+        limit: 50
+      })
 
-    return this.parser.parsePlaylistItems(resp.items.map((val) => val.item))
+      return this.parser.parsePlaylistItems(resp.items)
+    }
   }
 
   public async getStreamURL(songId: string, quality: string) {
@@ -207,7 +227,7 @@ export class TidalAPI {
       types: 'TRACKS'
     })
 
-    const songs = this.parser.parsePlaylistItems(resp.tracks.items)
+    const songs = this.parser.parseSearchItem(resp.tracks.items)
     return songs
   }
 

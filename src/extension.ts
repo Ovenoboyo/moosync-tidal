@@ -129,7 +129,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
     })
 
     api.on('requestedPlaylistSongs', async (playlist_id) => {
-      const songs = await this.tidalApi.getPlaylistItems(playlist_id)
+      const songs = await this.tidalApi.getPlaylistItems(playlist_id.replace('moosync.tidal:', ''))
       return { songs }
     })
 

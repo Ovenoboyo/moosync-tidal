@@ -28,7 +28,17 @@ export class APIParser {
     return `${RESOURCE_URL}/${id.replace(new RegExp('-', 'g'), '/')}/750x750.jpg`
   }
 
-  public parsePlaylistItems(items: TidalResponses.SingleTrack.Root[]) {
+  public parsePlaylistItems(items: TidalResponses.PlaylistItems.Item[]) {
+    const songs: Song[] = []
+
+    for (const i of items) {
+      songs.push(this.parseSingleTrack(i.item))
+    }
+
+    return songs
+  }
+
+  public parseSearchItem(items: TidalResponses.SingleTrack.Root[]) {
     const songs: Song[] = []
 
     for (const i of items) {
