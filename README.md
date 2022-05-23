@@ -2,6 +2,8 @@
 
 This extension provides the following features for Tidal
 - User playlists
+- Favorite tracks
+- Lyrics
 - Add song from URL
 - Add playlist from URL
 - Search songs
