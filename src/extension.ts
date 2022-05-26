@@ -7,14 +7,7 @@ import { TidalAPI } from './tidalApi'
 const PACKAGE_NAME = 'moosync.tidal'
 
 export class MyExtension implements MoosyncExtensionTemplate {
-  private accountId: string = ''
-
-  private deviceDetails: {
-    deviceCode?: string
-  } = {}
-
-  private authDetails: { refreshToken?: string; accessToken?: string; countryCode?: string }
-
+  private moosyncAccountId?: string
   private tidalApi = new TidalAPI()
 
   async onStarted() {
@@ -24,7 +17,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
     this.setupAccount()
     this.setupListeners()
 
-    if (!this.authDetails.accessToken && this.authDetails.refreshToken) {
+    if (!this.tidalApi.accessToken && this.tidalApi.refreshToken) {
       await this.performLogin()
     }
   }
@@ -36,19 +29,21 @@ export class MyExtension implements MoosyncExtensionTemplate {
 
     const accessToken = await api.getSecure<string>('accessToken')
     if (accessToken) {
-      this.tidalApi.setAccessToken(accessToken)
+      this.tidalApi.accessToken = accessToken
     }
 
-    this.deviceDetails = { deviceCode }
-    this.authDetails = { accessToken, refreshToken, countryCode }
+    this.tidalApi.refreshToken = refreshToken
+    this.tidalApi.countryCode = countryCode
 
-    console.log(this.deviceDetails, this.authDetails)
+    if (deviceCode) {
+      this.tidalApi.deviceCode = deviceCode
+    }
   }
 
   private async performLogout() {
-    this.deviceDetails = {}
-    this.authDetails = {}
-    this.tidalApi.setAccessToken(undefined)
+    this.tidalApi.deviceCode = undefined
+    this.tidalApi.accessToken = undefined
+    this.tidalApi.refreshToken = undefined
 
     await api.setSecure('deviceCode', undefined)
     await api.setSecure('refreshToken', undefined)
@@ -56,12 +51,12 @@ export class MyExtension implements MoosyncExtensionTemplate {
   }
 
   private async performLogin() {
-    if (!this.authDetails.accessToken) {
-      const res = await this.tidalApi.performLogin(this.authDetails.refreshToken, this.deviceDetails.deviceCode)
+    if (!this.tidalApi.accessToken) {
+      const res = await this.tidalApi.performLogin()
       console.debug('login response', res)
 
       if (typeof res !== 'number') {
-        await api.changeAccountAuthStatus(this.accountId, true, res.username)
+        await api.changeAccountAuthStatus(this.moosyncAccountId, true, res.username)
 
         if (res.refreshToken) {
           await api.setSecure('refreshToken', res.refreshToken)
@@ -69,7 +64,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
         await api.setPreferences('countryCode', res.countryCode)
       } else if (res === 1) {
         api.setSecure('deviceCode', undefined)
-        this.deviceDetails = {}
+        this.tidalApi.deviceCode = undefined
       }
     }
   }
@@ -79,7 +74,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
   }
 
   private async setupAccount() {
-    this.accountId = await api.registerAccount(
+    this.moosyncAccountId = await api.registerAccount(
       'Tidal',
       '#000000',
       path.resolve(__dirname, '../assets/icon.svg'),
@@ -93,43 +88,33 @@ export class MyExtension implements MoosyncExtensionTemplate {
   }
 
   private async loginCallback() {
-    if (!this.deviceDetails.deviceCode) {
-      const deviceData = await this.performDeviceAuthorization()
-      console.debug('device data:', deviceData)
-      if (deviceData) {
-        this.deviceDetails = {
-          deviceCode: deviceData.deviceCode
-        }
+    if (!this.tidalApi.deviceCode) {
+      const url = await this.performDeviceAuthorization()
+      api.setSecure('deviceCode', this.tidalApi.deviceCode)
 
-        api.setSecure('deviceCode', deviceData.deviceCode)
+      const interval = setInterval(() => {
+        api.off('oauthCallback')
+      }, 300 * 1000)
 
-        const interval = setInterval(() => {
-          api.off('oauthCallback')
-        }, 300 * 1000)
+      api.on('oauthCallback', async () => {
+        clearInterval(interval)
+        api.off('oauthCallback')
 
-        api.on('oauthCallback', async () => {
-          clearInterval(interval)
-          api.off('oauthCallback')
+        await this.performLogin()
+        await api.closeLoginModal()
+      })
 
-          await this.performLogin()
-          await api.closeLoginModal()
-        })
+      await api.registerOAuth('tidal')
+      await api.openLoginModal({
+        providerName: 'Tidal',
+        providerColor: 'var(--accent)',
+        text: 'After finishing, press the submit button',
+        url,
+        oauthPath: 'tidal',
+        manualClick: true
+      })
 
-        await api.registerOAuth('tidal')
-        await api.openLoginModal({
-          providerName: 'Tidal',
-          providerColor: 'var(--accent)',
-          text: 'After finishing, press the submit button',
-          url: deviceData.verificationUriComplete,
-          oauthPath: 'tidal',
-          manualClick: true
-        })
-
-        const url = deviceData.verificationUriComplete.startsWith('http')
-          ? deviceData.verificationUriComplete
-          : 'https://' + deviceData.verificationUriComplete
-        await api.openExternalURL(url)
-      }
+      await api.openExternalURL(url.startsWith('http') ? url : 'https://' + url)
     } else {
       await this.performLogin()
     }
@@ -137,42 +122,42 @@ export class MyExtension implements MoosyncExtensionTemplate {
 
   private setupListeners() {
     api.on('requestedPlaylists', async () => {
-      if (this.authDetails.accessToken) {
+      if (this.tidalApi.isLoggedIn) {
         const playlists = await this.tidalApi.getPlaylists()
         return { playlists }
       }
     })
 
     api.on('requestedPlaylistSongs', async (playlist_id) => {
-      if (this.authDetails.accessToken) {
+      if (this.tidalApi.isLoggedIn) {
         const songs = await this.tidalApi.getPlaylistItems(playlist_id.replace(`${PACKAGE_NAME}:`, ''))
         return { songs }
       }
     })
 
     api.on('requestedSongFromURL', async (url) => {
-      if (this.authDetails.accessToken) {
+      if (this.tidalApi.isLoggedIn) {
         const resp = await this.tidalApi.getTrackIfValid(url)
         if (resp) return { song: resp }
       }
     })
 
     api.on('requestedPlaylistFromURL', async (url) => {
-      if (this.authDetails.accessToken) {
+      if (this.tidalApi.isLoggedIn) {
         const resp = await this.tidalApi.getPlaylistIfValid(url)
         if (resp && resp.playlist) return resp
       }
     })
 
     api.on('requestSearchResult', async (term) => {
-      if (this.authDetails.accessToken) {
+      if (this.tidalApi.isLoggedIn) {
         const resp = await this.tidalApi.search(term)
         return { providerName: 'Tidal', songs: resp }
       }
     })
 
     api.on('requestedRecommendations', async () => {
-      if (this.authDetails.accessToken) {
+      if (this.tidalApi.isLoggedIn) {
         const data = await this.tidalApi.getRecommendations()
         return {
           providerName: 'Tidal',
@@ -182,7 +167,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
     })
 
     api.on('requestedLyrics', async (song) => {
-      if (this.authDetails.accessToken) {
+      if (this.tidalApi.isLoggedIn) {
         if (song.providerExtension === PACKAGE_NAME) {
           const data = await this.tidalApi.getLyrics(song._id.replace(`${PACKAGE_NAME}:`, ''))
           return data
@@ -191,7 +176,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
     })
 
     api.on('customRequest', async (url) => {
-      if (this.authDetails.accessToken) {
+      if (this.tidalApi.isLoggedIn) {
         const parsed = new URL(url)
         const songId = parsed.pathname.substring(1)
         const quality = parsed.searchParams.get('quality')
@@ -205,11 +190,10 @@ export class MyExtension implements MoosyncExtensionTemplate {
     api.on('preferenceChanged', async ({ key, value }) => {
       if (key === 'accessToken') {
         if (typeof value === 'string' || typeof value === 'undefined') {
-          this.authDetails.accessToken = value
-          this.tidalApi.setAccessToken(value)
+          this.tidalApi.accessToken = value
 
-          if (value) await api.changeAccountAuthStatus(this.accountId, true, 'Custom login')
-          else await api.changeAccountAuthStatus(this.accountId, false)
+          if (value) await api.changeAccountAuthStatus(this.moosyncAccountId, true, 'Custom login')
+          else await api.changeAccountAuthStatus(this.moosyncAccountId, false)
         }
       }
 

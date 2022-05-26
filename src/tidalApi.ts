@@ -15,19 +15,54 @@ const API_KEY = { clientId: '7m7Ap0JC9j1cOM3n', clientSecret: 'vRAdA108tlvkJpTsG
 export class TidalAPI {
   private axios = axios.create({ adapter })
 
-  private countryCode?: string = 'US'
-  private accessToken?: string
+  private _countryCode?: string = 'US'
+  private _accessToken?: string
+  private _refreshToken?: string
+  private _deviceCode?: string
+
   private accountId?: string
 
   private parser = new APIParser()
   private cacheHandler = new CacheHandler('./tidal.cache', false)
 
-  public setAccessToken(token?: string) {
+  public get isLoggedIn() {
+    return !!this.accessToken
+  }
+
+  public get refreshToken() {
+    return this._refreshToken
+  }
+
+  public set refreshToken(token: string | undefined) {
+    this._refreshToken = token
+  }
+
+  public get countryCode() {
+    return this._countryCode
+  }
+
+  public set countryCode(code: string | undefined) {
+    this._countryCode = code
+  }
+
+  public get deviceCode() {
+    return this._deviceCode
+  }
+
+  public set deviceCode(code: string | undefined) {
+    this._deviceCode = code
+  }
+
+  public set accessToken(token: string | undefined) {
     this.accessToken = token
     if (!token) {
       this.accountId = undefined
       this.countryCode = undefined
     }
+  }
+
+  public get accessToken() {
+    return this._accessToken
   }
 
   public async clearCache() {
@@ -43,24 +78,26 @@ export class TidalAPI {
           scope: 'r_usr+w_usr+w_sub'
         })
       )
-      return res.data
+
+      this.deviceCode = res.data.deviceCode
+      return res.data.verificationUriComplete
     } catch (e) {
       console.error('Tidal device authorization failed', (e as AxiosError).code, (e as AxiosError).message)
     }
   }
 
-  public async performLogin(refreshToken?: string, deviceCode?: string) {
+  public async performLogin() {
     try {
       const data = new URLSearchParams({
         client_id: API_KEY.clientId,
         scope: 'r_usr+w_usr+w_sub'
       })
 
-      if (refreshToken) {
-        data.set('refresh_token', refreshToken)
+      if (this.refreshToken) {
+        data.set('refresh_token', this.refreshToken)
         data.set('grant_type', 'refresh_token')
       } else {
-        data.set('device_code', deviceCode)
+        data.set('device_code', this.deviceCode)
         data.set('grant_type', 'urn:ietf:params:oauth:grant-type:device_code')
       }
 
