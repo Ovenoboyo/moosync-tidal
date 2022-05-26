@@ -51,7 +51,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
   }
 
   private async performLogin() {
-    if (!this.tidalApi.accessToken) {
+    if (!this.tidalApi.isLoggedIn) {
       const res = await this.tidalApi.performLogin()
       console.debug('login response', res)
 

@@ -54,10 +54,11 @@ export class TidalAPI {
   }
 
   public set accessToken(token: string | undefined) {
-    this.accessToken = token
+    this._accessToken = token
     if (!token) {
       this.accountId = undefined
       this.countryCode = undefined
+      this._refreshToken = undefined
     }
   }
 
@@ -111,6 +112,7 @@ export class TidalAPI {
       this.accessToken = res.data.access_token
       this.countryCode = res.data.user.countryCode
       this.accountId = res.data.user.userId.toString()
+      this.refreshToken = res.data.refresh_token
 
       return {
         refreshToken: res.data.refresh_token,
@@ -119,9 +121,13 @@ export class TidalAPI {
         username: res.data.user.fullName ?? res.data.user.username
       }
     } catch (e) {
-      console.error('Tidal authorization failed', (e as AxiosError).code, (e as AxiosError).response.data)
-      if (((e as AxiosError).response.data as any).sub_status === 1002) {
-        return 1
+      if ((e as AxiosError).isAxiosError) {
+        console.error('Tidal authorization failed', (e as AxiosError).code, (e as AxiosError).response.data)
+        if (((e as AxiosError).response.data as any).sub_status === 1002) {
+          return 1
+        }
+      } else {
+        console.error('Something went wrong', e)
       }
     }
 
