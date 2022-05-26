@@ -17,13 +17,12 @@
     "@moosync/moosync-types": "https://github.com/Moosync/extension-api-types#dev",
     "@moosync/packer": "0.1.4",
     "ts-loader": "^9.3.0",
-    "typescript": "^4.6.4",
+    "typescript": "^4.7.2",
     "vm2": "^3.9.9",
     "webpack": "^5.72.1",
     "webpack-cli": "^4.9.2"
   },
   "dependencies": {
-    "@types/node": "^17.0.35",
     "axios": "^0.27.2"
   }
 }

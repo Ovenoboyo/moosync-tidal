@@ -45,6 +45,16 @@ export class MyExtension implements MoosyncExtensionTemplate {
     console.log(this.deviceDetails, this.authDetails)
   }
 
+  private async performLogout() {
+    this.deviceDetails = {}
+    this.authDetails = {}
+    this.tidalApi.setAccessToken(undefined)
+
+    await api.setSecure('deviceCode', undefined)
+    await api.setSecure('refreshToken', undefined)
+    await api.setPreferences('countryCode', undefined)
+  }
+
   private async performLogin() {
     if (!this.authDetails.accessToken) {
       const res = await this.tidalApi.performLogin(this.authDetails.refreshToken, this.deviceDetails.deviceCode)
@@ -74,11 +84,12 @@ export class MyExtension implements MoosyncExtensionTemplate {
       '#000000',
       path.resolve(__dirname, '../assets/icon.svg'),
       this.loginCallback.bind(this),
-      async () => {
-        console.log('Logging out of tidal')
-        await api.changeAccountAuthStatus(this.accountId, false)
-      }
+      this.logoutCallback.bind(this)
     )
+  }
+
+  private async logoutCallback() {
+    await this.performLogout()
   }
 
   private async loginCallback() {
@@ -126,53 +137,69 @@ export class MyExtension implements MoosyncExtensionTemplate {
 
   private setupListeners() {
     api.on('requestedPlaylists', async () => {
-      const playlists = await this.tidalApi.getPlaylists()
-      return { playlists }
+      if (this.authDetails.accessToken) {
+        const playlists = await this.tidalApi.getPlaylists()
+        return { playlists }
+      }
     })
 
     api.on('requestedPlaylistSongs', async (playlist_id) => {
-      const songs = await this.tidalApi.getPlaylistItems(playlist_id.replace(`${PACKAGE_NAME}:`, ''))
-      return { songs }
+      if (this.authDetails.accessToken) {
+        const songs = await this.tidalApi.getPlaylistItems(playlist_id.replace(`${PACKAGE_NAME}:`, ''))
+        return { songs }
+      }
     })
 
     api.on('requestedSongFromURL', async (url) => {
-      const resp = await this.tidalApi.getTrackIfValid(url)
-      if (resp) return { song: resp }
+      if (this.authDetails.accessToken) {
+        const resp = await this.tidalApi.getTrackIfValid(url)
+        if (resp) return { song: resp }
+      }
     })
 
     api.on('requestedPlaylistFromURL', async (url) => {
-      const resp = await this.tidalApi.getPlaylistIfValid(url)
-      if (resp && resp.playlist) return resp
+      if (this.authDetails.accessToken) {
+        const resp = await this.tidalApi.getPlaylistIfValid(url)
+        if (resp && resp.playlist) return resp
+      }
     })
 
     api.on('requestSearchResult', async (term) => {
-      const resp = await this.tidalApi.search(term)
-      return { providerName: 'Tidal', songs: resp }
+      if (this.authDetails.accessToken) {
+        const resp = await this.tidalApi.search(term)
+        return { providerName: 'Tidal', songs: resp }
+      }
     })
 
     api.on('requestedRecommendations', async () => {
-      const data = await this.tidalApi.getRecommendations()
-      return {
-        providerName: 'Tidal',
-        songs: data
+      if (this.authDetails.accessToken) {
+        const data = await this.tidalApi.getRecommendations()
+        return {
+          providerName: 'Tidal',
+          songs: data
+        }
       }
     })
 
     api.on('requestedLyrics', async (song) => {
-      if (song.providerExtension === PACKAGE_NAME) {
-        const data = await this.tidalApi.getLyrics(song._id.replace(`${PACKAGE_NAME}:`, ''))
-        return data
+      if (this.authDetails.accessToken) {
+        if (song.providerExtension === PACKAGE_NAME) {
+          const data = await this.tidalApi.getLyrics(song._id.replace(`${PACKAGE_NAME}:`, ''))
+          return data
+        }
       }
     })
 
     api.on('customRequest', async (url) => {
-      const parsed = new URL(url)
-      const songId = parsed.pathname.substring(1)
-      const quality = parsed.searchParams.get('quality')
+      if (this.authDetails.accessToken) {
+        const parsed = new URL(url)
+        const songId = parsed.pathname.substring(1)
+        const quality = parsed.searchParams.get('quality')
 
-      const manifest = await this.tidalApi.getStreamURL(songId, quality)
+        const manifest = await this.tidalApi.getStreamURL(songId, quality)
 
-      return { mimeType: 'application/dash+xml', data: Buffer.from(manifest) }
+        return { mimeType: 'application/dash+xml', data: Buffer.from(manifest) }
+      }
     })
 
     api.on('preferenceChanged', async ({ key, value }) => {

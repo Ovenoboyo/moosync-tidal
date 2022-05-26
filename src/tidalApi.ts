@@ -24,6 +24,10 @@ export class TidalAPI {
 
   public setAccessToken(token?: string) {
     this.accessToken = token
+    if (!token) {
+      this.accountId = undefined
+      this.countryCode = undefined
+    }
   }
 
   public async clearCache() {
