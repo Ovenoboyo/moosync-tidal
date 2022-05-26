@@ -224,23 +224,31 @@ export class TidalAPI {
   }
 
   public async getTrackIfValid(url: string) {
-    const parsed = new URL(url)
-    //https://tidal.com/browse/track/34156240
-    if (this.matchTidalHostname(parsed) && parsed.pathname.includes('/track/')) {
-      const trackId = parsed.pathname.substring(parsed.pathname.lastIndexOf('/') + 1)
-      const song = await this.getTrack(trackId)
-      return song
+    try {
+      const parsed = new URL(url)
+      //https://tidal.com/browse/track/34156240
+      if (this.matchTidalHostname(parsed) && parsed.pathname.includes('/track/')) {
+        const trackId = parsed.pathname.substring(parsed.pathname.lastIndexOf('/') + 1)
+        const song = await this.getTrack(trackId)
+        return song
+      }
+    } catch (e) {
+      console.debug('Invalid URL', url, (e as Error).name)
     }
   }
 
   public async getPlaylistIfValid(url: string) {
-    const parsed = new URL(url)
-    //https://tidal.com/browse/playlist/48fb1098-5be4-4570-b95b-91c8f9bf4814
-    //https://listen.tidal.com/playlist/48fb1098-5be4-4570-b95b-91c8f9bf4814
-    if (this.matchTidalHostname(parsed) && parsed.pathname.includes('/playlist/')) {
-      const playlistId = parsed.pathname.substring(parsed.pathname.lastIndexOf('/') + 1)
-      const resp = await this.getPlaylist(playlistId)
-      return resp
+    try {
+      const parsed = new URL(url)
+      //https://tidal.com/browse/playlist/48fb1098-5be4-4570-b95b-91c8f9bf4814
+      //https://listen.tidal.com/playlist/48fb1098-5be4-4570-b95b-91c8f9bf4814
+      if (this.matchTidalHostname(parsed) && parsed.pathname.includes('/playlist/')) {
+        const playlistId = parsed.pathname.substring(parsed.pathname.lastIndexOf('/') + 1)
+        const resp = await this.getPlaylist(playlistId)
+        return resp
+      }
+    } catch (e) {
+      console.debug('Invalid URL', url, (e as Error).name)
     }
   }
 
