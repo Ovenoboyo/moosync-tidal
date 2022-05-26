@@ -3,6 +3,7 @@ import { MoosyncExtensionTemplate } from '@moosync/moosync-types'
 import path from 'path'
 import { URL } from 'url'
 import { TidalAPI } from './tidalApi'
+import semver from 'semver'
 
 const PACKAGE_NAME = 'moosync.tidal'
 
@@ -11,14 +12,16 @@ export class MyExtension implements MoosyncExtensionTemplate {
   private tidalApi = new TidalAPI()
 
   async onStarted() {
-    console.info('Tidal extension started')
-    await this.fetchPreferences()
+    if (semver.satisfies(process.env.MOOSYNC_VERSION, '>2.1.0')) {
+      console.info('Tidal extension started')
+      await this.fetchPreferences()
 
-    this.setupAccount()
-    this.setupListeners()
+      this.setupAccount()
+      this.setupListeners()
 
-    if (!this.tidalApi.accessToken && this.tidalApi.refreshToken) {
-      await this.performLogin()
+      if (!this.tidalApi.accessToken && this.tidalApi.refreshToken) {
+        await this.performLogin()
+      }
     }
   }
 

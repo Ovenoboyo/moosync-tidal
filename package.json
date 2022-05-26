@@ -23,6 +23,8 @@
     "webpack-cli": "^4.9.2"
   },
   "dependencies": {
-    "axios": "^0.27.2"
+    "@types/semver": "^7.3.9",
+    "axios": "^0.27.2",
+    "semver": "^7.3.7"
   }
 }
