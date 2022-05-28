@@ -220,8 +220,6 @@ export class TidalAPI {
     })
 
     const decoded = Buffer.from(resp.manifest, 'base64').toString('utf-8')
-
-    console.log(decoded)
     return decoded
   }
 
