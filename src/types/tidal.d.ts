@@ -121,7 +121,7 @@ declare namespace TidalResponses {
       audioQuality?: string
       audioModes?: string[]
       artist?: Artist
-      artists?: Artist2[]
+      artists?: Artist[]
       album?: Album
       mixes?: Mixes
       dateAdded?: string
@@ -130,14 +130,7 @@ declare namespace TidalResponses {
     interface Artist {
       id: number
       name: string
-      type: string
-      picture: string
-    }
-
-    interface Artist2 {
-      id: number
-      name: string
-      type: string
+      type?: string
       picture?: string
     }
 
@@ -153,12 +146,65 @@ declare namespace TidalResponses {
   }
 
   namespace SearchResults {
+    interface Artists {
+      id: number
+      name: string
+      picture?: string
+      popularity?: number
+      url?: string
+    }
+
+    interface Albums {
+      id: number
+      allowStreaming?: boolean
+      artists?: SingleTrack.Artist
+      audioModes?: string[]
+      audioQuality?: string
+      copyright?: string
+      cover?: string
+      duration?: number
+      explicit?: boolean
+      numberOfTracks?: number
+      numberOfVideos?: number
+      numberOfVolumes?: number
+      popularity?: number
+      premiumStreamingOnly?: boolean
+      releaseDate?: string
+      streamReady?: boolean
+      streamStartDate?: string
+      title: string
+      type?: 'ALBUM'
+      upc?: string
+      url?: string
+      version?: number
+      vibrantColor?: string
+      videoCover?: string
+    }
+
     interface Root {
       tracks: {
         limit: number
         offset: number
         totalNumberOfItems: number
         items: SingleTrack.Root[]
+      }
+      albums: {
+        limit: number
+        offset: number
+        totalNumberOfItems: number
+        items: Albums[]
+      }
+      artists: {
+        limit: number
+        offset: number
+        totalNumberOfItems: number
+        items: Artists[]
+      }
+      playlists: {
+        limit: number
+        offset: number
+        totalNumberOfItems: number
+        items: Playlists.Data[]
       }
       topHit: {
         value: SingleTrack.Root
@@ -333,8 +379,8 @@ declare namespace TidalResponses {
       id: any
       title: string
       subTitle?: string
-      graphic?: Graphic2
-      images?: Images2
+      graphic?: Graphic
+      images?: Images
       sharingImages: any
       mixType?: string
       contentBehavior?: string
@@ -343,7 +389,7 @@ declare namespace TidalResponses {
       vibrantColor?: string
       videoCover?: string
       url?: string
-      artists?: Artist2[]
+      artists?: Artist[]
       explicit?: boolean
       streamReady?: boolean
       streamStartDate?: string
@@ -359,87 +405,22 @@ declare namespace TidalResponses {
       image?: string
       squareImage?: string
       lastItemAddedAt?: string
-      promotedArtists?: PromotedArtist2[]
+      promotedArtists?: PromotedArtist[]
       creators?: Creator[]
       description?: string
       version: any
-      album?: Album2
+      album?: Album
       volumeNumber?: number
       trackNumber?: number
       popularity?: number
       editable?: boolean
       replayGain?: number
-      mixes?: Mixes2
-    }
-
-    interface Graphic2 {
-      type: string
-      text: string
-      images: Image2[]
-    }
-
-    interface Image2 {
-      id: string
-      vibrantColor: string
-      type: string
-    }
-
-    interface Images2 {
-      SMALL: Small2
-      MEDIUM: Medium2
-      LARGE: Large2
-    }
-
-    interface Small2 {
-      width: number
-      height: number
-      url: string
-    }
-
-    interface Medium2 {
-      width: number
-      height: number
-      url: string
-    }
-
-    interface Large2 {
-      width: number
-      height: number
-      url: string
-    }
-
-    interface Artist2 {
-      id: number
-      name: string
-      type: string
-      picture?: string
-    }
-
-    interface PromotedArtist2 {
-      id: number
-      name: string
-      type: string
-      picture: any
+      mixes?: Mixes
     }
 
     interface Creator {
       id: number
       name: string
-    }
-
-    interface Album2 {
-      id: number
-      title: string
-      cover: string
-      vibrantColor: string
-      videoCover: any
-      url: string
-      releaseDate: string
-    }
-
-    interface Mixes2 {
-      TRACK_MIX: string
-      MASTER_TRACK_MIX?: string
     }
 
     interface Header {
@@ -495,13 +476,6 @@ declare namespace TidalResponses {
       picture?: string
     }
 
-    interface Artist2 {
-      id: number
-      name: string
-      type: string
-      picture?: string
-    }
-
     interface Album {
       id: number
       title: string
@@ -519,6 +493,15 @@ declare namespace TidalResponses {
   namespace Lyrics {
     interface Root {
       lyrics: string
+    }
+  }
+
+  namespace ArtistSongs {
+    interface Root {
+      limit: number
+      offset: number
+      totalNumberOfItems: number
+      items: SingleTrack.Root[]
     }
   }
 }

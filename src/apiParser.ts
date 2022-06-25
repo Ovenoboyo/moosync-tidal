@@ -1,74 +1,89 @@
-import { Playlist, Song } from '@moosync/moosync-types'
+import { Album, Artists, Playlist, Song } from '@moosync/moosync-types'
 
 const RESOURCE_URL = 'https://resources.tidal.com/images'
 const PACKAGE_NAME = 'moosync.tidal'
 
 export class APIParser {
-  public parsePlaylists(items: TidalResponses.Playlists.Item[]): Playlist[] {
+  public parsePlaylists(...items: TidalResponses.Playlists.Data[]): Playlist[] {
     const playlists: Playlist[] = []
     for (const i of items) {
-      playlists.push(this.parsePlaylist(i.data))
+      if (i) {
+        playlists.push({
+          playlist_id: i.uuid.toString(),
+          playlist_name: i.title,
+          playlist_coverPath: this.getCover(i.squareImage),
+          playlist_desc: i.description
+        })
+      }
     }
 
     return playlists
   }
 
-  public parsePlaylist(item?: TidalResponses.Playlists.Data) {
-    if (item) {
-      return {
-        playlist_id: item.uuid,
-        playlist_name: item.title,
-        playlist_coverPath: this.getCover(item.squareImage),
-        playlist_desc: item.description
-      }
-    }
+  private getCover(id?: string) {
+    if (id) return `${RESOURCE_URL}/${id.replace(new RegExp('-', 'g'), '/')}/750x750.jpg`
   }
 
-  private getCover(id: string) {
-    return `${RESOURCE_URL}/${id.replace(new RegExp('-', 'g'), '/')}/750x750.jpg`
-  }
-
-  public parsePlaylistItems(items: TidalResponses.PlaylistItems.Item[]) {
+  public parseTracks(...items: TidalResponses.SingleTrack.Root[]) {
     const songs: Song[] = []
 
     for (const i of items) {
-      songs.push(this.parseSingleTrack(i.item))
+      if (i) {
+        songs.push({
+          _id: i.id.toString(),
+          title: i.title,
+          date_added: new Date(i.dateAdded ?? Date.now()).getTime(),
+          duration: i.duration,
+          song_coverPath_high: this.getCover(i.album.cover),
+          song_coverPath_low: this.getCover(i.album.cover),
+          artists: this.parseArtists(...i.artists),
+          album: this.parseAlbums(i.album)[0],
+          type: 'DASH',
+          playbackUrl: `extension://${PACKAGE_NAME}/${i.id}?quality=LOSSLESS`
+        })
+      }
     }
 
     return songs
   }
 
-  public parseSearchItem(items: TidalResponses.SingleTrack.Root[]) {
-    const songs: Song[] = []
-
-    for (const i of items) {
-      songs.push(this.parseSingleTrack(i))
-    }
-
-    return songs
-  }
-
-  public parseSingleTrack(item?: TidalResponses.SingleTrack.Root): Song {
-    if (item) {
-      return {
-        _id: item.id.toString(),
-        title: item.title,
-        date_added: new Date(item.dateAdded ?? Date.now()).getTime(),
-        duration: item.duration,
-        song_coverPath_high: this.getCover(item.album.cover),
-        artists: item.artists.map((val) => ({
-          artist_id: val.id.toString(),
-          artist_name: val.name,
-          artist_coverPath: val.picture
-        })),
-        album: {
-          album_id: item.album.id.toString(),
-          album_name: item.album.title,
-          album_coverPath_high: this.getCover(item.album.cover)
-        },
-        type: 'DASH',
-        playbackUrl: `extension://${PACKAGE_NAME}/${item.id}?quality=LOSSLESS`
+  public parseArtists(...artists: TidalResponses.SearchResults.Artists[]) {
+    const ret: Artists[] = []
+    for (const a of artists) {
+      if (a) {
+        ret.push({
+          artist_id: a.id.toString(),
+          artist_name: a.name,
+          artist_coverPath: this.getCover(a.picture),
+          artist_extra_info: {
+            extensions: {
+              [api.packageName]: {
+                artist_id: a.id.toString()
+              }
+            }
+          }
+        })
       }
     }
+
+    return ret
+  }
+
+  public parseAlbums(...albums: TidalResponses.SearchResults.Albums[]) {
+    const ret: Album[] = []
+
+    for (const a of albums) {
+      if (a) {
+        ret.push({
+          album_id: a.id.toString(),
+          album_name: a.title,
+          album_artist: a.artists?.name,
+          album_coverPath_high: this.getCover(a.cover),
+          album_coverPath_low: this.getCover(a.cover)
+        })
+      }
+    }
+
+    return ret
   }
 }

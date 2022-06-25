@@ -15,7 +15,7 @@ const API_KEY = { clientId: '7m7Ap0JC9j1cOM3n', clientSecret: 'vRAdA108tlvkJpTsG
 export class TidalAPI {
   private axios = axios.create({ adapter })
 
-  private _countryCode?: string = 'US'
+  private _countryCode?: string = 'GB'
   private _accessToken?: string
   private _refreshToken?: string
   private _deviceCode?: string
@@ -151,11 +151,15 @@ export class TidalAPI {
           deviceType: 'BROWSER'
         },
         headers: {
-          authorization: `Bearer ${this.accessToken}`
+          authorization: `Bearer ${this.accessToken}`,
+          'User-Agent':
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36'
         }
       })
 
       this.cacheHandler.addToCache(cacheId, JSON.stringify(resp.data))
+
+      console.log(resp.request.res.responseUrl)
 
       return resp.data
     } catch (e) {
@@ -171,7 +175,7 @@ export class TidalAPI {
 
   private async getFavoriteTracks() {
     const resp = await this.get<TidalResponses.PlaylistItems.Root>(`users/${this.accountId}/favorites/tracks`)
-    return this.parser.parsePlaylistItems(resp.items)
+    return this.parser.parseTracks(...resp.items.map((val) => val.item))
   }
 
   public async getPlaylists(): Promise<Playlist[]> {
@@ -189,7 +193,7 @@ export class TidalAPI {
     )
 
     return [
-      ...this.parser.parsePlaylists(resp.items),
+      ...this.parser.parsePlaylists(...resp.items.map((val) => val.data)),
       {
         playlist_id: 'favorite',
         playlist_name: 'Favorite Tracks',
@@ -208,7 +212,7 @@ export class TidalAPI {
         limit: 50
       })
 
-      return this.parser.parsePlaylistItems(resp.items)
+      return this.parser.parseTracks(...resp.items.map((val) => val.item))
     }
   }
 
@@ -264,12 +268,12 @@ export class TidalAPI {
   private async getTrack(id: number | string) {
     const resp = await this.get<TidalResponses.SingleTrack.Root>('tracks/' + id.toString())
 
-    return this.parser.parseSingleTrack(resp)
+    return this.parser.parseTracks(resp)[0]
   }
 
   private async getPlaylist(id: string) {
     const resp = await this.get<TidalResponses.Playlists.Data>('playlists/' + id)
-    const playlist = this.parser.parsePlaylist(resp)
+    const playlist = this.parser.parsePlaylists(resp)[0]
 
     if (playlist) {
       const songs = await this.getPlaylistItems(id)
@@ -282,11 +286,14 @@ export class TidalAPI {
       query: term,
       offset: 0,
       limit: 50,
-      types: 'TRACKS'
+      types: ['TRACKS', 'ARTISTS', 'ALBUMS', 'PLAYLIST']
     })
 
-    const songs = this.parser.parseSearchItem(resp.tracks.items)
-    return songs
+    const songs = this.parser.parseTracks(...resp.tracks.items)
+    const artists = this.parser.parseArtists(...resp.artists.items)
+    const playlists = this.parser.parsePlaylists(...resp.playlists.items)
+    const albums = this.parser.parseAlbums(...resp.albums.items)
+    return { songs, artists, playlists, albums }
   }
 
   public async getRecommendations() {
@@ -301,10 +308,7 @@ export class TidalAPI {
           offset: 0
         }
       )
-
-      for (const t of recommendations.items) {
-        songList.push(this.parser.parseSingleTrack(t.track))
-      }
+      songList.push(...this.parser.parseTracks(...recommendations.items.map((val) => val.track)))
     }
 
     const data = await this.get<TidalResponses.Pages.Root>('pages/staff_picks', {}, LISTEN_TIDAL)
@@ -317,13 +321,36 @@ export class TidalAPI {
         if (module.showMore) {
           const fetch = await this.get<TidalResponses.Pages.Root>(module.showMore.apiPath, {}, LISTEN_TIDAL)
           const tracks = fetch.rows[0].modules[0].pagedList.items
-          for (const t of tracks) {
-            songList.push(this.parser.parseSingleTrack(t))
-          }
+          songList.push(...this.parser.parseTracks(...tracks))
         }
       }
     }
 
     return songList
+  }
+
+  public async searchArtists(term: string) {
+    const resp = await this.get<TidalResponses.SearchResults.Root>('search', {
+      query: term,
+      offset: 0,
+      limit: 50,
+      types: ['ARTISTS']
+    })
+
+    return this.parser.parseArtists(...resp.artists.items)
+  }
+
+  public async getArtistSongs(artistId: string) {
+    const resp = await this.get<TidalResponses.ArtistSongs.Root>(
+      'pages/data/25b47120-6a2f-4dbb-8a38-daa415367d22',
+      {
+        artistId,
+        limit: 50,
+        offset: 0
+      },
+      LISTEN_TIDAL
+    )
+
+    return this.parser.parseTracks(...resp.items)
   }
 }

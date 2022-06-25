@@ -1,12 +1,14 @@
 # Tidal integration for Moosync
 
 This extension provides the following features for Tidal
+
 - User playlists
 - Favorite tracks
 - Lyrics
 - Add song from URL
 - Add playlist from URL
-- Search songs
+- Search songs, playlists, artists, albums
+- Artist songs
 - Song recommendations
 
 If you're looking for tidal API wrapper, look in [src/tidalApi.ts](./src/tidalApi.ts)

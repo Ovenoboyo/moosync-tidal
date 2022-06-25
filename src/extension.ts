@@ -152,10 +152,25 @@ export class MyExtension implements MoosyncExtensionTemplate {
       }
     })
 
-    api.on('requestSearchResult', async (term) => {
+    api.registerSearchProvider('Tidal')
+    api.on('requestedSearchResult', async (term) => {
       if (this.tidalApi.isLoggedIn) {
         const resp = await this.tidalApi.search(term)
-        return { providerName: 'Tidal', songs: resp }
+        return resp
+      }
+    })
+
+    api.registerArtistSongProvider('Tidal')
+    api.on('requestedArtistSongs', async (artist) => {
+      let artistId = api.utils.getArtistExtraInfo(artist)?.artist_id
+      if (!artistId) {
+        artistId = api.utils.getArtistExtraInfo((await this.tidalApi.searchArtists(artist.artist_name))[0])?.artist_id
+        artistId && (await api.setArtistEditableInfo(artist.artist_id, { artist_id: artistId }))
+      }
+
+      if (artistId) {
+        const songs = await this.tidalApi.getArtistSongs(artistId)
+        return { songs }
       }
     })
 
