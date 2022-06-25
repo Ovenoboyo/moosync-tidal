@@ -79,7 +79,14 @@ export class APIParser {
           album_name: a.title,
           album_artist: a.artists?.name,
           album_coverPath_high: this.getCover(a.cover),
-          album_coverPath_low: this.getCover(a.cover)
+          album_coverPath_low: this.getCover(a.cover),
+          album_extra_info: {
+            extensions: {
+              [api.packageName]: {
+                album_id: a.id.toString()
+              }
+            }
+          }
         })
       }
     }

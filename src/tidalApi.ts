@@ -340,6 +340,17 @@ export class TidalAPI {
     return this.parser.parseArtists(...resp.artists.items)
   }
 
+  public async searchAlbums(term: string) {
+    const resp = await this.get<TidalResponses.SearchResults.Root>('search', {
+      query: term,
+      offset: 0,
+      limit: 50,
+      types: ['ALBUMS']
+    })
+
+    return this.parser.parseAlbums(...resp.albums.items)
+  }
+
   public async getArtistSongs(artistId: string) {
     const resp = await this.get<TidalResponses.ArtistSongs.Root>(
       'pages/data/25b47120-6a2f-4dbb-8a38-daa415367d22',
@@ -352,5 +363,19 @@ export class TidalAPI {
     )
 
     return this.parser.parseTracks(...resp.items)
+  }
+
+  public async getAlbumSongs(albumId: string) {
+    const resp = await this.get<TidalResponses.AlbumSongs.Root>(
+      'pages/data/2fbf68c2-dc58-49b1-b1be-6958e66383f3',
+      {
+        albumId,
+        limit: 50,
+        offset: 0
+      },
+      LISTEN_TIDAL
+    )
+
+    return this.parser.parseTracks(...resp.items.map((val) => val.item))
   }
 }

@@ -504,4 +504,15 @@ declare namespace TidalResponses {
       items: SingleTrack.Root[]
     }
   }
+
+  namespace AlbumSongs {
+    interface Root {
+      limit: number
+      offset: number
+      totalNumberOfItems: number
+      items: {
+        item: SingleTrack.Root
+      }[]
+    }
+  }
 }

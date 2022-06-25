@@ -174,6 +174,20 @@ export class MyExtension implements MoosyncExtensionTemplate {
       }
     })
 
+    api.registerAlbumSongProvider('Tidal')
+    api.on('requestedAlbumSongs', async (album) => {
+      let albumId = api.utils.getAlbumExtraInfo(album)?.album_id
+      if (!albumId) {
+        albumId = api.utils.getAlbumExtraInfo((await this.tidalApi.searchAlbums(album.album_name))[0])?.album_id
+        albumId && (await api.setAlbumEditableInfo(album.album_id, { album_id: albumId }))
+      }
+
+      if (albumId) {
+        const songs = await this.tidalApi.getAlbumSongs(albumId)
+        return { songs }
+      }
+    })
+
     api.on('requestedRecommendations', async () => {
       if (this.tidalApi.isLoggedIn) {
         const data = await this.tidalApi.getRecommendations()

@@ -49,7 +49,7 @@
 
 "@moosync/moosync-types@https://github.com/Moosync/extension-api-types#dev":
   version "1.3.0"
-  resolved "https://github.com/Moosync/extension-api-types#83670ffbf3eab0fb4774df5fcb9788d2dd1ef7c0"
+  resolved "https://github.com/Moosync/extension-api-types#44cec02027319b9db53c5f327b21431835693cde"
   dependencies:
     "@types/node" "^17.0.35"
 
