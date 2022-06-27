@@ -8,6 +8,7 @@ import { resolve } from 'path'
 
 const API_V2 = 'https://api.tidal.com/v2'
 const API_V1 = 'https://api.tidalhifi.com/v1'
+const API_V1_ALT = 'https://api.tidal.com/v1'
 const LISTEN_TIDAL = 'https://listen.tidal.com/v1'
 const AUTH_URL = 'https://auth.tidal.com/v1/oauth2'
 const API_KEY = { clientId: '7m7Ap0JC9j1cOM3n', clientSecret: 'vRAdA108tlvkJpTsGZS8rGZ7xTlbJ0qaZ2K9saEzsgY=' }
@@ -19,6 +20,7 @@ export class TidalAPI {
   private _accessToken?: string
   private _refreshToken?: string
   private _deviceCode?: string
+  private _sessionId?: string
 
   private accountId?: string
 
@@ -47,6 +49,14 @@ export class TidalAPI {
 
   public get deviceCode() {
     return this._deviceCode
+  }
+
+  public get sessionId() {
+    return this._sessionId
+  }
+
+  public set sessionId(id: string) {
+    this._sessionId = id
   }
 
   public set deviceCode(code: string | undefined) {
@@ -142,34 +152,55 @@ export class TidalAPI {
       return JSON.parse(cache) as T
     }
 
+    let optionalParams = {
+      countryCode: this.countryCode
+    }
+
+    let headers = {
+      authorization: `Bearer ${this.accessToken}`,
+      'User-Agent':
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36'
+    }
+
+    if (path.includes('playbackinfopostpaywall')) {
+      optionalParams['streamingsessionid'] = this.sessionId
+      headers['X-Tidal-SessionID'] = this.sessionId
+    } else {
+      optionalParams['locale'] = 'en_US'
+      optionalParams['deviceType'] = 'BROWSER'
+    }
+
     try {
       const resp = await this.axios.get<T>(`${customUrl ?? API_V1}/${path}`, {
         params: {
           ...query,
-          countryCode: this.countryCode,
-          locale: 'en_US',
-          deviceType: 'BROWSER'
+          ...optionalParams
         },
-        headers: {
-          authorization: `Bearer ${this.accessToken}`,
-          'User-Agent':
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36'
-        }
+        headers
       })
 
-      this.cacheHandler.addToCache(cacheId, JSON.stringify(resp.data))
+      this.cacheHandler.addToCache(cacheId, JSON.stringify(resp?.data))
 
-      console.log(resp.request.res.responseUrl)
-
-      return resp.data
+      return resp?.data
     } catch (e) {
       console.error(
-        'Failed to fetch from Tidal API',
-        (customUrl ?? API_V1) + '/' + path,
+        customUrl ?? API_V1 + '/' + path,
         query,
+        optionalParams,
         (e as AxiosError).code,
         (e as AxiosError).response?.data
       )
+      throw new Error('Failed to fetch from Tidal API')
+    }
+  }
+
+  public async getSessionId() {
+    try {
+      const resp = await this.get<{ sessionId: string }>('sessions')
+      this.sessionId = resp.sessionId
+      console.log(resp)
+    } catch (e) {
+      console.error(e)
     }
   }
 
@@ -216,15 +247,27 @@ export class TidalAPI {
     }
   }
 
-  public async getStreamURL(songId: string, quality: string) {
-    const resp = await this.get<TidalResponses.StreamDetails.Root>(`tracks/${songId}/playbackinfopostpaywall`, {
-      audioquality: quality,
-      playbackmode: 'STREAM',
-      assetpresentation: 'FULL'
-    })
+  public async getStreamURL(songId: string, quality: string, tries = 0): Promise<string | undefined> {
+    if (!this.sessionId) {
+      await this.getSessionId()
+    }
+    if (tries < 2) {
+      try {
+        const resp = await this.get<TidalResponses.StreamDetails.Root>(`tracks/${songId}/playbackinfopostpaywall`, {
+          audioquality: quality,
+          playbackmode: 'STREAM',
+          assetpresentation: 'FULL'
+        })
 
-    const decoded = Buffer.from(resp.manifest, 'base64').toString('utf-8')
-    return decoded
+        if (resp.manifest) {
+          const decoded = Buffer.from(resp.manifest, 'base64').toString('utf-8')
+          return decoded
+        }
+      } catch (e) {
+        console.error(e)
+        return this.getStreamURL(songId, 'HI_RES', tries + 1)
+      }
+    }
   }
 
   private matchTidalHostname(url: URL) {
@@ -261,8 +304,12 @@ export class TidalAPI {
   }
 
   public async getLyrics(id: string) {
-    const resp = await this.get<TidalResponses.Lyrics.Root>(`tracks/${id}/lyrics`, {}, LISTEN_TIDAL)
-    return resp.lyrics
+    try {
+      // const resp = await this.get<TidalResponses.Lyrics.Root>(`tracks/${id}/lyrics`, {}, LISTEN_TIDAL)
+      // return resp.lyrics
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   private async getTrack(id: number | string) {
