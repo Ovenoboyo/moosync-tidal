@@ -11,6 +11,8 @@ export class MyExtension implements MoosyncExtensionTemplate {
   private moosyncAccountId?: string
   private tidalApi = new TidalAPI()
 
+  private customAccessToken = false
+
   async onStarted() {
     if (semver.satisfies(process.env.MOOSYNC_VERSION, '>2.1.0')) {
       console.info('Tidal extension started')
@@ -21,6 +23,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
 
       if (!this.tidalApi.accessToken && this.tidalApi.refreshToken) {
         await this.performLogin()
+        await this.tidalApi.getSessionId()
       }
     }
   }
@@ -33,6 +36,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
     const accessToken = await api.getSecure<string>('accessToken')
     if (accessToken) {
       this.tidalApi.accessToken = accessToken
+      this.customAccessToken = true
     }
 
     this.tidalApi.refreshToken = refreshToken
@@ -44,13 +48,17 @@ export class MyExtension implements MoosyncExtensionTemplate {
   }
 
   private async performLogout() {
-    this.tidalApi.deviceCode = undefined
-    this.tidalApi.accessToken = undefined
-    this.tidalApi.refreshToken = undefined
+    if (!this.customAccessToken) {
+      this.tidalApi.deviceCode = undefined
+      this.tidalApi.accessToken = undefined
+      this.tidalApi.refreshToken = undefined
 
-    await api.setSecure('deviceCode', undefined)
-    await api.setSecure('refreshToken', undefined)
-    await api.setPreferences('countryCode', undefined)
+      await api.setSecure('deviceCode', undefined)
+      await api.setSecure('refreshToken', undefined)
+      await api.setPreferences('countryCode', undefined)
+
+      await api.changeAccountAuthStatus(this.moosyncAccountId, false)
+    }
   }
 
   private async performLogin() {
@@ -84,9 +92,14 @@ export class MyExtension implements MoosyncExtensionTemplate {
       this.loginCallback.bind(this),
       this.logoutCallback.bind(this)
     )
+
+    if (this.customAccessToken) {
+      await api.changeAccountAuthStatus(this.moosyncAccountId, true, 'Custom login')
+    }
   }
 
   private async logoutCallback() {
+    console.log('called logout callback')
     await this.performLogout()
   }
 
@@ -104,6 +117,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
         api.off('oauthCallback')
 
         await this.performLogin()
+        await this.tidalApi.getSessionId()
         await api.closeLoginModal()
       })
 
@@ -215,7 +229,9 @@ export class MyExtension implements MoosyncExtensionTemplate {
 
         const manifest = await this.tidalApi.getStreamURL(songId, quality)
 
-        return { mimeType: 'application/dash+xml', data: Buffer.from(manifest) }
+        if (manifest) {
+          return { mimeType: 'application/dash+xml', data: Buffer.from(manifest) }
+        }
       }
     })
 
@@ -223,6 +239,7 @@ export class MyExtension implements MoosyncExtensionTemplate {
       if (key === 'accessToken') {
         if (typeof value === 'string' || typeof value === 'undefined') {
           this.tidalApi.accessToken = value
+          await this.tidalApi.getSessionId()
 
           if (value) await api.changeAccountAuthStatus(this.moosyncAccountId, true, 'Custom login')
           else await api.changeAccountAuthStatus(this.moosyncAccountId, false)
